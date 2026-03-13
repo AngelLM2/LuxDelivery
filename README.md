@@ -8,7 +8,7 @@ PostgreSQL
 Redis  
 Docker
 
-**Swagger Documentation ->** [https://lux-delivery.onrender.com/docs]https://luxdelivery-production.up.railway.app/docs
+**Swagger Documentation ->** https://luxdelivery-production.up.railway.app/docs
 
 # About the Project
 
