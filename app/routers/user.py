@@ -56,3 +56,14 @@ async def update_profile(
 async def deactivate_user(user_id: int, session: AsyncSession = Depends(get_session)):
     service = UserService(session)
     return await service.deactivate(user_id)
+
+
+@router.patch(
+    "/{user_id}/activate",
+    response_model=UserRead,
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_roles(UserRole.ADMIN))],
+)
+async def activate_user(user_id: int, session: AsyncSession = Depends(get_session)):
+    service = UserService(session)
+    return await service.activate(user_id)  

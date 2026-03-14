@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     TTL_PRODUCTS_LIST: int =  120
     TTL_CATEGORIES: int = 600
     TTL_USER: int = 60
+    POSTGRES_USER: str
+    POSTGRES_PASSWORD: str
+    POSTGRES_DB: str
+    REDIS_PASSWORD: str
 
     class Config:
         env_file = ".env"

@@ -62,6 +62,10 @@ class UserService:
         if user.role == UserRole.ADMIN:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Nao e permitido desativar administrador por esta rota.",
+                detail="Nao e permitido desativar administrador",
             )
         return await self.repo.update(user, {"is_active": False})
+
+    async def activate(self, user_id: int) -> User:
+        user = await self.get_by_id(user_id)
+        return await self.repo.update(user, {"is_active": True})
