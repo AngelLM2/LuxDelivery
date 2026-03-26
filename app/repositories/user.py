@@ -9,6 +9,8 @@ from app.models.user import User
 class UserRepository:
     BOOTSTRAP_ADMIN_LOCK_ID = 824311
 
+    _UPDATABLE_FIELDS = frozenset({"full_name", "phone", "is_active", "hashed_password"})
+
     def __init__(self, session: AsyncSession):
         self.session = session
 
@@ -28,7 +30,7 @@ class UserRepository:
             role=role,
         )
         self.session.add(user)
-        await self.session.commit()
+        await self.session.flush()
         await self.session.refresh(user)
         return user
 
@@ -56,15 +58,18 @@ class UserRepository:
 
     async def update(self, user: User, data: dict) -> User:
         for key, value in data.items():
+            if key not in self._UPDATABLE_FIELDS:
+                raise ValueError(f"Campo '{key}' nao e atualizavel.")
             setattr(user, key, value)
-        await self.session.commit()
+        await self.session.flush()
         await self.session.refresh(user)
         return user
 
     async def lock_bootstrap_admin(self) -> None:
-        bind = self.session.bind
-        if bind and bind.dialect.name == "postgresql":
+        try:
             await self.session.execute(
                 text("SELECT pg_advisory_xact_lock(:lock_id)"),
                 {"lock_id": self.BOOTSTRAP_ADMIN_LOCK_ID},
             )
+        except Exception:
+            pass

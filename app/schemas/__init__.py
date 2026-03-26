@@ -1,5 +1,5 @@
 from app.schemas.analytics import OrderStatusCount, OrdersAnalyticsRead
-from app.schemas.auth import LoginRequest, RefreshTokenRequest, TokenPair
+from app.schemas.auth import LoginRequest, TokenResponse
 from app.schemas.category import CategoryCreate, CategoryRead, CategoryUpdate
 from app.schemas.notification import NotificationRead
 from app.schemas.order import (
@@ -29,8 +29,7 @@ __all__ = [
     "ProductCreate",
     "ProductRead",
     "ProductUpdate",
-    "RefreshTokenRequest",
-    "TokenPair",
+    "TokenResponse",
     "TrackingEventRead",
     "UserCreate",
     "UserRead",

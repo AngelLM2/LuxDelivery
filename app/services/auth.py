@@ -1,8 +1,11 @@
+import logging
 from datetime import datetime, timezone
 import secrets
 
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger(__name__)
 
 from app.auth.jwt import (
     create_access_token,
@@ -77,21 +80,29 @@ class AuthService:
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Usuario inativo.",
             )
-        try:
-            refresh_token = await self._issue_refresh_token(user.id)
-            await self.refresh_repo.commit()
-        except Exception:
-            await self.refresh_repo.rollback()
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Erro ao iniciar sessao.",
-            )
+        refresh_token = await self._issue_refresh_token(user.id)
 
         return {
             "access_token": create_access_token(user.id, user.role.value),
             "refresh_token": refresh_token,
             "token_type": "bearer",
         }
+
+    async def logout(self, refresh_token: str) -> None:
+        payload = decode_token(refresh_token)
+        if not payload or payload.get("type") != "refresh":
+            return
+
+        jti = payload.get("jti")
+        if not jti:
+            return
+
+        token_record = await self.refresh_repo.search_by_jti_hash(
+            jti_hash=hash_token_jti(jti),
+            lock_for_update=True,
+        )
+        if token_record and token_record.revoked_at is None:
+            await self.refresh_repo.revoke(token_record, replaced_by_jti_hash=None)
 
     async def refresh(self, refresh_token: str):
         payload = decode_token(refresh_token)
@@ -116,53 +127,41 @@ class AuthService:
                 detail="Refresh token invalido.",
             )
 
-        try:
-            token_record = await self.refresh_repo.search_by_jti_hash(
-                jti_hash=hash_token_jti(jti),
-                lock_for_update=True,
-            )
-            now = datetime.now(timezone.utc)
-            if token_record and token_record.expires_at.tzinfo is None:
-                now = now.replace(tzinfo=None)
-            if (
-                not token_record
-                or token_record.user_id != user_id
-                or token_record.revoked_at is not None
-                or token_record.expires_at <= now
-            ):
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Refresh token invalido ou revogado.",
-                )
-
-            user = await self.repo.search_by_id(user_id)
-            if not user or not user.is_active:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Usuario nao encontrado ou inativo.",
-                )
-
-            new_refresh_token, new_jti = create_refresh_token(user.id)
-            new_jti_hash = hash_token_jti(new_jti)
-            await self.refresh_repo.revoke(token_record, replaced_by_jti_hash=new_jti_hash)
-            await self.refresh_repo.create(
-                user_id=user.id,
-                jti_hash=new_jti_hash,
-                expires_at=get_refresh_token_expiry(),
-            )
-            await self.refresh_repo.commit()
-        except HTTPException:
-            await self.refresh_repo.rollback()
-            raise
-        except Exception:
-            await self.refresh_repo.rollback()
+        token_record = await self.refresh_repo.search_by_jti_hash(
+            jti_hash=hash_token_jti(jti),
+            lock_for_update=True,
+        )
+        now = datetime.now(timezone.utc)
+        if token_record and token_record.expires_at.tzinfo is None:
+            now = now.replace(tzinfo=None)
+        if (
+            not token_record
+            or token_record.user_id != user_id
+            or token_record.revoked_at is not None
+            or token_record.expires_at <= now
+        ):
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Erro ao renovar token.",
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Refresh token invalido ou revogado.",
             )
+
+        user = await self.repo.search_by_id(user_id)
+        if not user or not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Usuario nao encontrado ou inativo.",
+            )
+
+        new_refresh_token, new_jti = create_refresh_token(user.id)
+        new_jti_hash = hash_token_jti(new_jti)
+        await self.refresh_repo.revoke(token_record, replaced_by_jti_hash=new_jti_hash)
+        await self.refresh_repo.create(
+            user_id=user.id,
+            jti_hash=new_jti_hash,
+            expires_at=get_refresh_token_expiry(),
+        )
 
         return {
             "access_token": create_access_token(user.id, user.role.value),
             "refresh_token": new_refresh_token,
-            "token_type": "bearer",
         }

@@ -5,13 +5,15 @@ from app.models.category import Category
 
 
 class CategoryRepository:
+    _UPDATABLE_FIELDS = frozenset({"name"})
+
     def __init__(self, session: AsyncSession):
         self.session = session
 
     async def create(self, name: str) -> Category:
         category = Category(name=name)
         self.session.add(category)
-        await self.session.commit()
+        await self.session.flush()
         await self.session.refresh(category)
         return category
 
@@ -20,7 +22,7 @@ class CategoryRepository:
         if not category:
             return False
         await self.session.delete(category)
-        await self.session.commit()
+        await self.session.flush()
         return True
 
     async def update(self, category_id: int, data: dict) -> Category | None:
@@ -28,9 +30,11 @@ class CategoryRepository:
         if not category:
             return None
         for key, value in data.items():
+            if key not in self._UPDATABLE_FIELDS:
+                raise ValueError(f"Campo '{key}' nao e atualizavel.")
             setattr(category, key, value)
 
-        await self.session.commit()
+        await self.session.flush()
         await self.session.refresh(category)
         return category
 

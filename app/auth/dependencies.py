@@ -1,20 +1,29 @@
-from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+import logging
+
+from fastapi import Cookie, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.jwt import decode_token
+from app.config import settings
 from app.database import get_session
 from app.models.user import UserRole
 from app.repositories.user import UserRepository
+from app.services.cache_service import CacheService
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
+logger = logging.getLogger(__name__)
 
 
 async def get_current_user(
-    token: str = Depends(oauth2_scheme),
+    access_token: str | None = Cookie(default=None),
     session: AsyncSession = Depends(get_session),
 ):
-    payload = decode_token(token)
+    if not access_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Nao autenticado.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    payload = decode_token(access_token)
     if not payload or payload.get("type") != "access":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -30,6 +39,34 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    cache_key = f"user:{user_id}"
+    try:
+        cached = await CacheService.get(cache_key)
+        if cached is not None:
+        
+            if not cached.get("active"):
+                await CacheService.delete(cache_key)
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Usuario nao encontrado ou inativo.",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+
+            repo = UserRepository(session)
+            user = await repo.search_by_id(int(user_id))
+            if not user or not user.is_active:
+                await CacheService.delete(cache_key)
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Usuario nao encontrado ou inativo.",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+            return user
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.warning("Cache get_current_user falhou: %s", exc)
+
     repo = UserRepository(session)
     user = await repo.search_by_id(int(user_id))
     if not user or not user.is_active:
@@ -38,7 +75,14 @@ async def get_current_user(
             detail="Usuario nao encontrado ou inativo.",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    try:
+        await CacheService.set(cache_key, {"id": user.id, "active": True}, settings.TTL_USER)
+    except Exception as exc:
+        logger.warning("Cache set get_current_user falhou: %s", exc)
+
     return user
+
 
 
 def require_roles(*roles: UserRole):

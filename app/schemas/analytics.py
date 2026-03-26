@@ -13,6 +13,6 @@ class OrdersAnalyticsRead(BaseModel):
     delivered_orders: int
     canceled_orders: int
     avg_minutes_to_confirm: float | None
-    avg_minutes_to_dispatch: float | None
+    avg_minutes_to_dispatch: float | None   
     avg_minutes_to_deliver: float | None
     status_breakdown: list[OrderStatusCount]

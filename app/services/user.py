@@ -1,14 +1,16 @@
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.jwt import get_password_hash
+from app.auth.jwt import get_password_hash, verify_password
 from app.models.user import User, UserRole
 from app.repositories.user import UserRepository
 from app.schemas.user import UserCreate, UserUpdate
+from app.services.cache_service import CacheService
 
 
 class UserService:
     def __init__(self, session: AsyncSession):
+        self.session = session
         self.repo = UserRepository(session)
 
     async def create(self, data: UserCreate) -> User:
@@ -23,13 +25,14 @@ class UserService:
                 detail="Telefone ja cadastrado.",
             )
         hashed_password = get_password_hash(data.password)
-        return await self.repo.create(
+        user = await self.repo.create(
             full_name=data.full_name,
-            email=data.email,
+            email=data.email.lower(),
             phone=data.phone,
             hashed_password=hashed_password,
-            role=data.role,
+            role=getattr(data, "role", UserRole.CUSTOMER)
         )
+        return user
 
     async def list(self) -> list[User]:
         return await self.repo.list()
@@ -54,8 +57,21 @@ class UserService:
                     detail="Telefone ja cadastrado.",
                 )
         if payload.get("password"):
+            if not verify_password(payload.pop("current_password", None) or "", current_user.hashed_password):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Senha atual incorreta.",
+                )
+            payload.pop("password_confirm", None)
             payload["hashed_password"] = get_password_hash(payload.pop("password"))
-        return await self.repo.update(current_user, payload)
+        else:
+            payload.pop("current_password", None)
+            payload.pop("password_confirm", None)
+
+        user = await self.repo.update(current_user, payload)
+        if "hashed_password" in payload:
+            await CacheService.delete(f"user:{current_user.id}")
+        return user
 
     async def deactivate(self, user_id: int) -> User:
         user = await self.get_by_id(user_id)
@@ -64,8 +80,13 @@ class UserService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Nao e permitido desativar administrador",
             )
-        return await self.repo.update(user, {"is_active": False})
+        result = await self.repo.update(user, {"is_active": False})
+        # ARQ-03: Invalida cache imediatamente para bloquear requests em andamento
+        await CacheService.delete(f"user:{user_id}")
+        return result
 
     async def activate(self, user_id: int) -> User:
         user = await self.get_by_id(user_id)
-        return await self.repo.update(user, {"is_active": True})
+        result = await self.repo.update(user, {"is_active": True})
+        await CacheService.delete(f"user:{user_id}")
+        return result

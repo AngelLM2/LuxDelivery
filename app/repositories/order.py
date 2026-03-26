@@ -65,12 +65,16 @@ class OrderRepository:
         result = await self.session.execute(query)
         return result.unique().scalars().all()
 
-    async def list_all(self) -> list[Order]:
-        result = await self.session.execute(
+    async def list_all(self, limit: int = 20, cursor: int = 0) -> list[Order]:
+        query = (
             select(Order)
             .options(joinedload(Order.items), joinedload(Order.tracking_events))
-            .order_by(Order.created_at.desc())
+            .order_by(Order.id.asc())
+            .limit(limit)
         )
+        if cursor > 0:
+            query = query.filter(Order.id > cursor)
+        result = await self.session.execute(query)
         return result.unique().scalars().all()
 
     async def list_for_period(self, start_at: datetime, end_at: datetime) -> list[Order]:
@@ -80,9 +84,3 @@ class OrderRepository:
             .order_by(Order.created_at.desc())
         )
         return result.scalars().all()
-
-    async def commit(self) -> None:
-        await self.session.commit()
-
-    async def rollback(self) -> None:
-        await self.session.rollback()

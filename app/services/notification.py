@@ -7,6 +7,7 @@ from app.repositories.notification import NotificationRepository
 
 class NotificationService:
     def __init__(self, session: AsyncSession):
+        self.session = session
         self.repo = NotificationRepository(session)
 
     async def list_for_user(self, current_user: User, only_unread: bool | None = None):

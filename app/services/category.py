@@ -6,8 +6,10 @@ from app.repositories.category import CategoryRepository
 from app.schemas.category import CategoryCreate, CategoryUpdate
 from app.services.cache_service import CacheService
 
+
 class CategoryService:
     def __init__(self, session: AsyncSession):
+        self.session = session
         self.repo = CategoryRepository(session)
         self.cache = CacheService
 

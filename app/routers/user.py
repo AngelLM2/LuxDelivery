@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.dependencies import get_current_user, require_roles
 from app.database import get_session
 from app.models.user import UserRole
-from app.schemas.user import UserCreate, UserRead, UserUpdate
+from app.schemas.user import AdminUserCreate, UserCreate, UserRead, UserUpdate
 from app.services.user import UserService
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -27,7 +27,7 @@ async def list_users(session: AsyncSession = Depends(get_session)):
     status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(require_roles(UserRole.ADMIN))],
 )
-async def create_user(data: UserCreate, session: AsyncSession = Depends(get_session)):
+async def create_user(data: AdminUserCreate, session: AsyncSession = Depends(get_session)):
     service = UserService(session)
     return await service.create(data)
 

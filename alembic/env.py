@@ -3,7 +3,6 @@ from logging.config import fileConfig
 from sqlalchemy import engine_from_config, pool
 from alembic import context
 
-
 from app.config import settings
 from app.database import Base
 
@@ -27,11 +26,9 @@ def _sync_db_url(url: str) -> str:
 config.set_main_option("sqlalchemy.url", _sync_db_url(settings.DATABASE_URL))
 
 
-
-
-
 target_metadata = Base.metadata
 
+#run with $env:PYTHONPATH = "."; alembic upgrade head
 
 def run_migrations_offline() -> None:
     url = config.get_main_option("sqlalchemy.url")

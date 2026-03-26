@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_user
+from app.config import settings
 from app.database import get_session
 from app.schemas.order import OrderCreate, OrderRead, OrderStatusUpdate, TrackingEventRead
 from app.services.order import OrderService
@@ -21,11 +22,13 @@ async def create_order(
 
 @router.get("/", response_model=list[OrderRead], status_code=status.HTTP_200_OK)
 async def list_orders(
+    limit: int = Query(default=20, ge=1, le=settings.PRODUCTS_MAX_PAGE_SIZE),
+    cursor: int = Query(default=0, ge=0),
     session: AsyncSession = Depends(get_session),
     current_user=Depends(get_current_user),
 ):
     service = OrderService(session)
-    return await service.list_for_user(current_user)
+    return await service.list_for_user(current_user, limit=limit, cursor=cursor)
 
 
 @router.get("/{order_id}", response_model=OrderRead, status_code=status.HTTP_200_OK)
@@ -57,4 +60,3 @@ async def list_tracking_events(
 ):
     service = OrderService(session)
     return await service.tracking(order_id, current_user)
-

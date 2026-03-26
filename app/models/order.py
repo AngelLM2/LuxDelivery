@@ -1,7 +1,7 @@
 import enum
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, Enum, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Column, DateTime, Enum, Float, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -22,7 +22,7 @@ class Order(Base):
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     customer_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     status = Column(Enum(OrderStatus), default=OrderStatus.CREATED, nullable=False, index=True)
-    total_amount = Column(Float, nullable=False, default=0)
+    total_amount = Column(Numeric(12, 2), nullable=False, default=0)
     delivery_address = Column(String(255), nullable=False)
     notes = Column(Text, nullable=True)
 
@@ -52,8 +52,8 @@ class OrderItem(Base):
     order_id = Column(Integer, ForeignKey("orders.id"), nullable=False, index=True)
     product_id = Column(Integer, ForeignKey("product.id"), nullable=False)
     quantity = Column(Integer, nullable=False)
-    unit_price = Column(Float, nullable=False)
-    total_price = Column(Float, nullable=False)
+    unit_price = Column(Numeric(12, 2), nullable=False)
+    total_price = Column(Numeric(12, 2), nullable=False)
 
     order = relationship("Order", back_populates="items")
     product = relationship("Product", back_populates="order_items")

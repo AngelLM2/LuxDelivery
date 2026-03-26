@@ -8,12 +8,16 @@ DATABASE_URL = settings.DATABASE_URL
 
 engine = create_async_engine(DATABASE_URL)
 
-SessionLocal = async_sessionmaker(autocommit=False, autoflush=False, bind=engine, expire_on_commit=False)
+SessionLocal = async_sessionmaker(engine, autocommit=False, autoflush=False, expire_on_commit=False)
 
 Base = declarative_base()
 
+
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
     async with SessionLocal() as session:
-        yield session
-
-
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise

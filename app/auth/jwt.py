@@ -2,7 +2,7 @@ import hashlib
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
-from jose import JWTError, jwt
+import jwt as pyjwt
 from passlib.context import CryptContext
 
 from app.config import settings
@@ -28,7 +28,7 @@ def _create_token(data: dict, expires_delta: timedelta, token_type: str) -> str:
             "type": token_type,
         }
     )
-    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    return pyjwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
 def create_access_token(user_id: int, role: str) -> str:
@@ -55,7 +55,7 @@ def hash_token_jti(jti: str) -> str:
 
 def decode_token(token: str) -> dict | None:
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        payload = pyjwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         return payload
-    except JWTError:
+    except pyjwt.PyJWTError:
         return None

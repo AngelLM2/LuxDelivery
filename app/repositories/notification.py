@@ -36,6 +36,6 @@ class NotificationRepository:
         if not notification:
             return None
         notification.is_read = True
-        await self.session.commit()
+        await self.session.flush()
         await self.session.refresh(notification)
         return notification

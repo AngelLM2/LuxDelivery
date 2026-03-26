@@ -11,15 +11,13 @@ router = APIRouter(prefix="/categories", tags=["categories"])
 
 
 @router.get("/", response_model=list[CategoryRead], status_code=status.HTTP_200_OK)
-async def list_categories(
-    session: AsyncSession = Depends(get_session)
-):
+async def list_categories(session: AsyncSession = Depends(get_session)):
     service = CategoryService(session)
     return await service.list()
 
 
 @router.post(
-    "/post",
+    "/",
     response_model=CategoryRead,
     status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(require_roles(UserRole.ADMIN))],
@@ -30,7 +28,7 @@ async def create_category(data: CategoryCreate, session: AsyncSession = Depends(
 
 
 @router.patch(
-    "/patch/{category_id}",
+    "/{category_id}",
     response_model=CategoryRead,
     status_code=status.HTTP_200_OK,
     dependencies=[Depends(require_roles(UserRole.ADMIN))],
@@ -45,7 +43,7 @@ async def update_category(
 
 
 @router.delete(
-    "/delete/{category_id}",
+    "/{category_id}",
     status_code=status.HTTP_200_OK,
     dependencies=[Depends(require_roles(UserRole.ADMIN))],
 )

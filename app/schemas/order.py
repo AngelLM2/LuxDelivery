@@ -13,7 +13,7 @@ class OrderItemCreate(BaseModel):
 class OrderCreate(BaseModel):
     delivery_address: str = Field(min_length=5, max_length=255)
     notes: str | None = Field(default=None, max_length=1000)
-    items: list[OrderItemCreate] = Field(min_length=1)
+    items: list[OrderItemCreate] = Field(min_length=1, max_length=50)
 
 
 class OrderStatusUpdate(BaseModel):
@@ -35,7 +35,6 @@ class TrackingEventRead(BaseModel):
     id: int
     status: OrderStatus
     description: str
-    created_by_user_id: int | None = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

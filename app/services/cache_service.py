@@ -60,4 +60,7 @@ class CacheService():
     def key_categories_list() -> str:
         return "categories:list"
 
+    @staticmethod
+    def key_orders_user(user_id: int, role: str) -> str:
+        return f"orders:user:{user_id}:{role}"
 

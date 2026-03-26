@@ -14,31 +14,33 @@ logger = logging.getLogger(__name__)
 
 
 def _get_client_ip(request: Request) -> str:
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
     if request.client and request.client.host:
         return request.client.host
     return "unknown"
 
 
-def _get_user_id_from_auth(request: Request) -> str | None:
+def _get_user_id_from_request(request: Request) -> str | None:
+    """Tenta extrair o user_id do Bearer token (header) ou do cookie access_token."""
+    token: str | None = None
+
     auth_header = request.headers.get("authorization")
-    if not auth_header:
-        return None
-    parts = auth_header.split(" ", 1)
-    if len(parts) != 2 or parts[0].lower() != "bearer":
-        return None
-    token = parts[1].strip()
+    if auth_header:
+        parts = auth_header.split(" ", 1)
+        if len(parts) == 2 and parts[0].lower() == "bearer" and parts[1].strip():
+            token = parts[1].strip()
+
+    if not token:
+        token = request.cookies.get("access_token")
+
     if not token:
         return None
+
     payload = decode_token(token)
     if not payload or payload.get("type") != "access":
         return None
+
     user_id = payload.get("sub")
-    if not user_id:
-        return None
-    return str(user_id)
+    return str(user_id) if user_id else None
 
 
 def _rate_limit_response(window: int) -> JSONResponse:
@@ -46,6 +48,13 @@ def _rate_limit_response(window: int) -> JSONResponse:
         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
         content={"detail": "Muitas requisicoes. Tente novamente em instantes."},
         headers={"Retry-After": str(window)},
+    )
+
+
+def _service_unavailable_response() -> JSONResponse:
+    return JSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        content={"detail": "Servico temporariamente indisponivel. Tente novamente em instantes."},
     )
 
 
@@ -60,7 +69,7 @@ async def rate_limit_middleware(request: Request, call_next):
         cutoff = now - window
 
         client_ip = _get_client_ip(request)
-        user_id = _get_user_id_from_auth(request)
+        user_id = _get_user_id_from_request(request)
 
         keys: list[tuple[str, int]] = [(f"rate:ip:{client_ip}", max_per_ip)]
         if user_id:
@@ -82,5 +91,6 @@ async def rate_limit_middleware(request: Request, call_next):
 
     except RedisError as e:
         logger.error("Rate limiter Redis indisponivel: %s", e)
+        return _service_unavailable_response()
 
     return await call_next(request)

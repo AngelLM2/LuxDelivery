@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.models.user import UserRole
 
@@ -30,12 +30,17 @@ def _validate_password_bcrypt_bytes(password: str) -> str:
     return password
 
 
+
 class UserCreate(BaseModel):
     full_name: str = Field(min_length=2, max_length=120)
     email: str = Field(min_length=5, max_length=120)
-    phone: str | None = Field(default=None, min_length=8, max_length=25)
+    phone: str = Field(min_length=8, max_length=25)
     password: str = Field(min_length=10, max_length=128)
-    role: UserRole = UserRole.CUSTOMER
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, v: str) -> str:
+        return v.strip().lower()
 
     @field_validator("password")
     @classmethod
@@ -44,10 +49,18 @@ class UserCreate(BaseModel):
         return _validate_password_bcrypt_bytes(password)
 
 
+
+class AdminUserCreate(UserCreate):
+    role: UserRole = UserRole.CUSTOMER
+
+
+
 class UserUpdate(BaseModel):
     full_name: str | None = Field(default=None, min_length=2, max_length=120)
     phone: str | None = Field(default=None, min_length=8, max_length=25)
+    current_password: str = Field(default=None, min_length=10, max_length=128)
     password: str | None = Field(default=None, min_length=10, max_length=128)
+    password_confirm: str | None = Field(default=None, min_length=10, max_length=128)
 
     @field_validator("password")
     @classmethod
@@ -57,12 +70,21 @@ class UserUpdate(BaseModel):
         password = _validate_password_strength(password)
         return _validate_password_bcrypt_bytes(password)
 
+    @model_validator(mode="after")
+    def validate_password_change(self) -> "UserUpdate":
+        if self.password is not None:
+            if not self.current_password:
+                raise ValueError("Informe a senha atual para alterar a senha.")
+            if self.password != self.password_confirm:
+                raise ValueError("As senhas nao conferem.")
+        return self
+
 
 class UserRead(BaseModel):
     id: int
     full_name: str
     email: str
-    phone: str | None
+    phone: str
     role: UserRole
     is_active: bool
     created_at: datetime

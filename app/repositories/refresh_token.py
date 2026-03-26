@@ -25,9 +25,3 @@ class RefreshTokenRepository:
         token.revoked_at = datetime.now(timezone.utc)
         token.replaced_by_jti_hash = replaced_by_jti_hash
         return token
-
-    async def commit(self) -> None:
-        await self.session.commit()
-
-    async def rollback(self) -> None:
-        await self.session.rollback()

@@ -10,6 +10,11 @@ class LoginRequest(BaseModel):
     email: str = Field(min_length=5, max_length=120)
     password: str = Field(min_length=6, max_length=128)
 
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, v: str) -> str:
+        return v.strip().lower()
+
     @field_validator("password")
     @classmethod
     def validate_password_bcrypt_bytes(cls, password: str) -> str:
@@ -18,11 +23,5 @@ class LoginRequest(BaseModel):
         return password
 
 
-class RefreshTokenRequest(BaseModel):
-    refresh_token: str = Field(min_length=10)
-
-
-class TokenPair(BaseModel):
-    access_token: str
-    refresh_token: str
+class TokenResponse(BaseModel):
     token_type: str = "bearer"

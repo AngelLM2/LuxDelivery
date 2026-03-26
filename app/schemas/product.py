@@ -4,17 +4,21 @@ from pydantic import BaseModel, ConfigDict, Field
 class ProductCreate(BaseModel):
     name: str = Field(min_length=2, max_length=100)
     price: float = Field(gt=0)
-    description: str = Field(min_length=2, max_length=1000)
+    description: str | None = Field(default=None, min_length=2, max_length=1000)
+    short_description: str | None = Field(default=None, min_length=2, max_length=200)
     is_offer: bool = False
-    category_id: int | None = None
+    category_id: int
+    highlights: bool = False
 
 
 class ProductUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=2, max_length=100)
     price: float | None = Field(default=None, gt=0)
     description: str | None = Field(default=None, min_length=2, max_length=1000)
-    is_offer: bool | None = None
-    category_id: int | None = None
+    short_description: str | None = Field(default=None, min_length=2, max_length=200)
+    is_offer: bool = False
+    category_id: int
+    highlights: bool = False
 
 
 class ProductRead(BaseModel):
@@ -22,7 +26,10 @@ class ProductRead(BaseModel):
     name: str
     price: float
     description: str
-    is_offer: bool
-    category_id: int | None = None
+    short_description: str
+    image_url: str | None = None
+    is_offer: bool = False
+    category_id: int 
+    highlights: bool = False
 
     model_config = ConfigDict(from_attributes=True)
