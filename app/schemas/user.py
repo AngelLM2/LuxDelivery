@@ -84,7 +84,7 @@ class UserRead(BaseModel):
     id: int
     full_name: str
     email: str
-    phone: str
+    phone: str | None = None
     role: UserRole
     is_active: bool
     created_at: datetime
